@@ -37,17 +37,15 @@ An end-to-end machine learning system that:
 | **Recall** | **0.79** | Out of every 10 customers who would churn, we catch **8 of them** in advance |
 | **Precision** | **0.62** | Of all customers flagged as high-risk, **62% are genuine churners** |
 
-### Monthly Impact Estimate
+## Monthly Impact Estimate (Based on Precision = 0.62)
 
-Every month, the model flags **352 high-risk customers** for the retention team.
+If the retention team uses our model to target **350 high‑risk customers per month**:
 
-- **295 of them would genuinely churn** without intervention
-- Even a modest **40% save rate** on those 295 customers = **118 customers retained per month**
-- At $1,200/customer = **$141,600 saved per month → ~$1.7M per year**
+- **Precision = 0.62** → ~**217 of those are genuine churners**
+- With a realistic **40% save rate** → ~**87 customers retained per month**
+- **Annual savings:** 87 × $1,200 × 12 ≈ **$1.25 million per year**
 
-> Conservative estimate. Does not account for upsell revenue from successfully retained customers.
-
----
+> *This is a conservative estimate, excluding upsell revenue from retained customers.*
 
 ## Why We Catch 8 Out of 10 Churners
 
@@ -107,13 +105,18 @@ Feature Engineering        Create 8 business-logic signals (e.g. "is this custom
 
 ## Accuracy vs. Competing Approaches
 
+We tested 7 different machine learning models against a simple rule‑based baseline.  
+The champion model was tuned specifically to maximise **Recall** — catching as many real churners as possible.
+
 | Approach | Recall | Notes |
 |---|---|---|
-| Rule-based (contract type only) | ~0.42 | Simple but misses ~60% of churners |
-| Logistic Regression (baseline) | 0.74 | Fast, interpretable, decent recall |
-| Random Forest | 0.63 | Higher precision, lower recall |
-| **XGBoost (champion)** | **0.79** | Best balance of recall and precision |
-| Stacking Ensemble | 0.77 | Marginally lower, much higher compute cost |
+| Rule‑based (contract type only) | ~0.42 | Simple, but misses ~60% of churners |
+| Logistic Regression (baseline) | **0.69** | Fast, interpretable, decent baseline |
+| Random Forest | **0.74** | Good precision, higher recall than logistic regression |
+| **Tuned XGBoost (Champion)** | **0.79** |  Best balance of recall and precision — catches 8/10 churners |
+| Stacking Ensemble | 0.77 | Slightly lower recall, significantly higher compute cost |
+
+All scores are evaluated on the original (non‑SMOTE) test set to reflect real‑world performance.
 
 ---
 
