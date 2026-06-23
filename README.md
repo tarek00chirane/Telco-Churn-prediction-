@@ -72,7 +72,7 @@ Customers using 7 or more of the available services (security, backup, streaming
 
 ## How to Use the Live Demo
 
-👉 **[Open the Interactive Predictor](https://streamlit)**
+👉 **[Open the Interactive Predictor](https://streamlit)**(Currently unavailable)
 
 Enter a customer profile : contract type, monthly charge, tenure, and services and instantly see:
 - Their churn probability score
