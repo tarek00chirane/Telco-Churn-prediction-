@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 import warnings
+import os
+from pathlib import Path
 warnings.filterwarnings('ignore')
 
 # ─── Page configuration ───────────────────────────────────────────────────────
@@ -34,11 +36,39 @@ st.markdown("""
 @st.cache_resource
 def load_pipeline():
     try:
-        pipeline = joblib.load('churn_production_pipeline.pkl')
+       
+        # Get the directory where this script is located
+        current_dir = Path(__file__).parent
+        
+        # Try multiple possible locations (in order of likelihood)
+        possible_paths = [
+            current_dir / 'churn_production_pipeline.pkl',           # Same folder as app.py
+            current_dir / '..' / 'churn_production_pipeline.pkl',    # One level up (repo root)
+            Path('churn_production_pipeline.pkl'),                   # Working directory root
+            Path('/app/churn_production_pipeline.pkl'),              # Streamlit Cloud absolute path
+            Path('/mount/src/your-repo-name/churn_production_pipeline.pkl'),  # GitHub Codespaces
+        ]
+        
+        # Try each path until we find the file
+        pipeline = None
+        for path in possible_paths:
+            if path.exists():
+                st.info(f"✅ Found pipeline at:  {path}")
+                pipeline = joblib.load(path)
+                break
+        
+        if pipeline is None:
+            # Debug: Show what files exist in the current directory
+            st.error("❌ Pipeline file 'churn_production_pipeline.pkl' not found!")
+            st.write("📁 Files in current directory:", os.listdir('.'))
+            st.write("📁 Files in parent directory:", os.listdir('..') if os.path.exists('..') else "N/A")
+            st.write("📁 Current working directory:", os.getcwd())
+            return None
+        
         return pipeline
-    except FileNotFoundError:
-        st.error("❌ Pipeline file 'churn_production_pipeline.pkl' not found!")
-        st.info("Make sure the file is in the same folder as this app.")
+        
+    except Exception as e:
+        st.error(f"❌ Error loading pipeline: {str(e)}")
         return None
 
 pipeline = load_pipeline()
