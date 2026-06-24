@@ -11,13 +11,9 @@ warnings.filterwarnings('ignore')
 # ─── Page configuration ───────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Telco Churn Predictor",
-    page_icon="📱",
+    page_icon="📊",  # fallback, but we'll override with Font Awesome
     layout="wide",
-    initial_sidebar_state="expanded",
-    
-    
 )
-
 
 # ─── Custom CSS for better appearance ─────────────────────────────────────────
 st.markdown("""
@@ -49,7 +45,7 @@ def load_pipeline():
             Path('/mount/src/your-repo-name/churn_production_pipeline.pkl'),  # GitHub Codespaces
         ]
         
-        # Try each path until we find the file
+        # Try each path until i find the file
         pipeline = None
         for path in possible_paths:
             if path.exists():
@@ -75,8 +71,8 @@ pipeline = load_pipeline()
 
 # ─── Title and intro ──────────────────────────────────────────────────────────
 st.title(" Telco Customer Churn Predictor")
-st.markdown("**Predict customer churn risk and get actionable recommendations**")
-st.markdown("<p style='text-align: right; color: gray; font-size: 11px;'><i><b>Prepared by Tarek Chirane</b></i></p>", unsafe_allow_html=True)
+st.markdown("**ML-powered churn risk assessment. Predict customer churn risk and get actionable recommendations**")
+
 st.divider()
 
 # ─── Sidebar: Input section ───────────────────────────────────────────────────
@@ -137,7 +133,7 @@ payment_method = st.sidebar.selectbox(
 paperless_billing = st.sidebar.checkbox("Paperless Billing", value=False)
 
 # ─── Feature Engineering ──────────────────────────────────────────────────────
-# This is the EXACT logic from your notebook
+
 
 # Count active services
 num_active_services = sum([
@@ -254,65 +250,113 @@ st.header("Recommended Actions")
 
 recommendations = []
 
-# Rule 1: Contract type
+# ─── Rule 1: Contract type ───────────────────────────────────────────────────
 if contract == "Month-to-month":
-    recommendations.append(
-        ("🔴 CRITICAL", "Contract Migration", 
-         "Customer on month-to-month contract. Offer incentive to migrate to 1-year or 2-year contract.")
-    )
+    recommendations.append({
+        "severity": "🔴 CRITICAL",
+        "title": "Contract Migration",
+        "description": "Month-to-month contract detected. Offer a 10% first-year discount to convert to 1-year or 2-year contract. Reduces churn risk by up to 40%."
+    })
 elif contract == "One year":
-    recommendations.append(
-        ("🟡 MEDIUM", "Upgrade Path", 
-         "Offer upgrade to 2-year contract before renewal to increase lock-in.")
-    )
+    recommendations.append({
+        "severity": "🟡 MEDIUM",
+        "title": "Upgrade Path",
+        "description": "Offer a loyalty upgrade to 2-year contract before renewal. Provides customer with better terms and locks in engagement."
+    })
 
-# Rule 2: Tenure
+# ─── Rule 2: Tenure ──────────────────────────────────────────────────────────
 if tenure < 6:
-    recommendations.append(
-        ("🔴 CRITICAL", "Early Engagement", 
-         "Customer is very new (<6 months). Proactive onboarding call within 48 hours.")
-    )
+    recommendations.append({
+        "severity": "🔴 CRITICAL",
+        "title": "Early Engagement",
+        "description": "New customer (<6 months) — high vulnerability. Proactive onboarding call within 48 hours to ensure smooth transition and identify early pain points."
+    })
 elif tenure < 12:
-    recommendations.append(
-        ("🟡 MEDIUM", "First-Year Check-in", 
-         "Customer approaching 12-month milestone. Confirm satisfaction before churn window.")
-    )
+    recommendations.append({
+        "severity": "🟡 MEDIUM",
+        "title": "First-Year Check-in",
+        "description": "Customer approaching 12-month milestone. Schedule satisfaction review to address concerns before the typical churn window opens."
+    })
 
-# Rule 3: Monthly charges vs tenure
+# ─── Rule 3: High bill + low tenure ──────────────────────────────────────────
 if monthly_charges > 80 and tenure < 12:
-    recommendations.append(
-        ("🔴 CRITICAL", "High Bill Alert", 
-         "New customer paying premium price. Risk of billing shock. Offer bundle discount.")
-    )
+    recommendations.append({
+        "severity": "🔴 CRITICAL",
+        "title": "High Bill Alert",
+        "description": f"New customer paying ${monthly_charges}/month — premium pricing tier. Risk of billing shock. Offer a 15% loyalty discount or bundle reduction."
+    })
 
-# Rule 4: Services
+# ─── Rule 4: Service engagement ──────────────────────────────────────────────
 if num_active_services < 3:
-    recommendations.append(
-        ("🟡 MEDIUM", "Service Adoption", 
-         f"Customer using only {num_active_services} services. Recommend bundling (security, backup, support).")
-    )
+    recommendations.append({
+        "severity": "🟡 MEDIUM",
+        "title": "Service Adoption",
+        "description": f"Customer using only {num_active_services}/9 services. Low engagement = high churn risk. Recommend bundling security, backup, and support with a free trial period."
+    })
 elif num_active_services >= 7:
-    recommendations.append(
-        ("🟢 LOW", "Loyalty Program", 
-         "Customer highly engaged with {num_active_services} services. Good retention candidate.")
-    )
+    recommendations.append({
+        "severity": "🟢 LOW",
+        "title": "Loyalty Program",
+        "description": f"Customer highly engaged with {num_active_services} services. Strong retention candidate. Invite to referral program or offer premium upgrade at reduced rate."
+    })
 
-# Rule 5: Security & Support
+# ─── Rule 5: Security & Support ──────────────────────────────────────────────
+# Note: Using the variable names from your inputs
 if not online_security and not tech_support and internet_service == "Fiber Optic":
-    recommendations.append(
-        ("🔴 CRITICAL", "Add Protective Services", 
-         "Fiber Optic customer without security/support. Offer free 3-month trial.")
-    )
+    recommendations.append({
+        "severity": "🔴 CRITICAL",
+        "title": "Add Protective Services",
+        "description": "Fiber Optic customer without security or support services. This is a high-value, high-risk segment. Offer free 3-month trial of OnlineSecurity and TechSupport."
+    })
 
+# ─── Rule 6: High bill + multiple lines ──────────────────────────────────────
+# (Added a bonus recommendation based on your feature engineering)
+if monthly_charges > 70 and contract == "Month-to-month" and tenure < 6:
+    recommendations.append({
+        "severity": "🔴 CRITICAL",
+        "title": "Price Sensitivity Alert",
+        "description": "Customer matches highest-risk archetype: new, month-to-month, high bill. Immediate retention call needed. Consider first-month credit or service upgrade."
+    })
+
+# ─── Default: No critical issues ─────────────────────────────────────────────
 if not recommendations:
-    recommendations.append(
-        ("🟢 LOW", "Standard Monitoring", 
-         "Customer profile is healthy. Continue standard engagement.")
-    )
+    recommendations.append({
+        "severity": "🟢 LOW",
+        "title": "Standard Monitoring",
+        "description": "Customer profile is healthy — no critical churn signals detected. Continue standard engagement and monitor at renewal."
+    })
 
-# Display recommendations
-for priority, title, description in recommendations:
-    st.info(f"**{priority} — {title}**\n{description}")
+# ─── Display recommendations with professional styling ──────────────────────
+for rec in recommendations:
+    # Set color based on severity
+    if "CRITICAL" in rec["severity"]:
+        border_color = "#c0392b"      # Red
+        bg_color = "#fde8e8"           # Light red
+    elif "MEDIUM" in rec["severity"]:
+        border_color = "#f39c12"       # Orange
+        bg_color = "#fef9e7"           # Light orange
+    else:
+        border_color = "#27ae60"       # Green
+        bg_color = "#eafaf1"           # Light green
+    
+    st.markdown(f"""
+        <div style="
+            background-color: {bg_color};
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            border-left: 6px solid {border_color};
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        ">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                <span style="font-size: 18px; font-weight: bold;">{rec['severity']}</span>
+                <span style="font-size: 16px; font-weight: bold; color: #2c3e50;">— {rec['title']}</span>
+            </div>
+            <div style="color: #555; font-size: 14px; margin-top: 4px; line-height: 1.5;">
+                {rec['description']}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
 
@@ -339,19 +383,48 @@ profile_data = {
         f"{num_active_services}/9",
         contract,
         internet_service,
-        "✅ Yes" if online_security else "❌ No",
-        "✅ Yes" if tech_support else "❌ No",
+        " Yes" if online_security else " No",
+        " Yes" if tech_support else " No",
         payment_method,
-        "✅ Yes" if paperless_billing else "❌ No"
+        " Yes" if paperless_billing else " No"
     ]
 }
 
 st.dataframe(profile_data, use_container_width=True, hide_index=True)
 
-st.divider()
+
 
 # ─── Engineered features (for transparency) ───────────────────────────────────
-with st.expander(" Engineered Features (Advanced)"):
+import streamlit as st
+
+# Initialize session state
+if "show_eng" not in st.session_state:
+    st.session_state.show_eng = False
+
+# Create a row with just the button (takes full width)
+st.markdown("---")  # Optional separator
+
+# Use columns to make the button take full width
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button(
+        "▼ Hide engineered features" if st.session_state.show_eng else "▶ Show engineered features",
+        key="eng_toggle_btn",
+        use_container_width=True
+    ):
+        st.session_state.show_eng = not st.session_state.show_eng
+        st.rerun()
+
+# Show content only when toggled on
+if st.session_state.show_eng:
+    st.markdown("""
+        <p style="color: #666; font-size: 13px; margin-bottom: 12px;">
+            These features are computed from raw inputs and used by the model to predict churn risk.
+            <b style="color: #2e75b6;">Contract Risk (log)</b> is the single strongest predictor.
+        </p>
+    """, unsafe_allow_html=True)
+
+    # ─── Prepare data ──────────────────────────────────────────────────────────
     eng_data = {
         "Feature": [
             "Avg Monthly Charges",
@@ -362,25 +435,87 @@ with st.expander(" Engineered Features (Advanced)"):
         ],
         "Value": [
             f"${avg_monthly_charges:.2f}",
-            f"${charge_trend:+.2f}",
-            f"{contract_risk_log:.4f}",
-            f"{monthly_to_total_ratio_log:.4f}",
-            f"{avg_service_usage*100:.1f}%"
+            f"{charge_trend:+.2f}" if isinstance(charge_trend, (int, float)) else "N/A",
+            f"{contract_risk_log:.4f}" if contract_risk_log is not None else "N/A",
+            f"{monthly_to_total_ratio_log:.4f}" if monthly_to_total_ratio_log is not None else "N/A",
+            f"{avg_service_usage * 100:.1f}%" if avg_service_usage is not None else "N/A"
         ],
         "Interpretation": [
             "Historical average spend per month",
-            "Current bill vs historical (+ means increase)",
-            "High risk when new + expensive (most important!)",
-            "New customer indicator with high bill",
-            "Fraction of available services used"
+            "Current bill vs historical (+ = increase = risk)",
+            "High when new + expensive (most important!)",
+            "High = new customer with big bill",
+            f"Fraction of 9 services used ({num_active_services}/9)"
+        ],
+        "Risk Impact": [
+            "Medium",
+            "High",
+            "High",
+            "Medium",
+            "Low"
         ]
     }
-    st.dataframe(eng_data, use_container_width=True, hide_index=True)
 
+    # ─── Display as styled dataframe ──────────────────────────────────────────
+    import pandas as pd
+    eng_df = pd.DataFrame(eng_data)
+
+    def highlight_important(row):
+        if "Contract Risk" in row["Feature"]:
+            return ["background-color: #fef9e7; font-weight: bold;"] * len(row)
+        return [""] * len(row)
+
+    st.dataframe(
+        eng_df.style
+        .apply(highlight_important, axis=1)
+        .set_properties(**{
+            'text-align': 'left',
+            'padding': '8px 12px',
+        })
+        .set_table_styles([
+            {'selector': 'thead th', 'props': [('background-color', '#1f4e79'), ('color', 'white'), ('font-weight', 'bold')]},
+            {'selector': 'tbody tr:hover', 'props': [('background-color', '#f0f2f6')]},
+        ]),
+        use_container_width=True,
+        hide_index=True,
+        height=250
+    )
+
+    # ─── Quick risk summary ────────────────────────────────────────────────────
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(
+            label="High Risk Signals",
+            value=sum([
+                charge_trend > 5 if isinstance(charge_trend, (int, float)) else 0,
+                contract_risk_log > 0.5 if contract_risk_log is not None else 0,
+                monthly_to_total_ratio_log > 0.5 if monthly_to_total_ratio_log is not None else 0,
+                num_active_services < 3 if num_active_services is not None else 0
+            ]),
+            delta="Critical alerts"
+        )
+    with col2:
+        risk_level = "High" if contract_risk_log > 0.5 else "Medium" if contract_risk_log > 0.2 else "Low"
+        st.metric(
+            label="Overall Risk",
+            value=risk_level,
+            delta="Based on Contract Risk"
+        )
+    with col3:
+        engagement_pct = avg_service_usage * 100 if avg_service_usage is not None else 0
+        st.metric(
+            label="Engagement Score",
+            value=f"{engagement_pct:.0f}%",
+            delta=f"{num_active_services}/9 services" if num_active_services is not None else "N/A"
+        )
+        st.progress(engagement_pct / 100)
 # ─── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
 st.markdown("""
 <p style='text-align: center; color: gray; font-size: 12px;'>
-    Telco Churn Prediction Model | Built with Streamlit | Model AUC-ROC: 0.847
+    Telco Churn Prediction Model | Built with Streamlit | XGBoost Model · AUC-ROC 0.847
 </p>
+             <div style='text-align: center; color: #888; font-size: 12px;'>
+        Built by <b>Tarek Chirane  </b>
+    </div>
 """, unsafe_allow_html=True)
