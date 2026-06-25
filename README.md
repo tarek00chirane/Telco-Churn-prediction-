@@ -169,9 +169,12 @@ All scores are evaluated on the original (non‑SMOTE) test set to reflect real�
 
 ---
 
-## Contact
+## Connect with Me
 
- 
-[LinkedIn](https://www.linkedin.com/in/tarek-chirane-2452b9260) · [Email](tareksttarek@gmail.com)
+Built by **[Your Name]**  
+
+- [LinkedIn](https://www.linkedin.com/in/tarek-chirane-2452b9260)
+- [GitHub](https://github.com/tarek00chirane)
+- [Email](tareksttarek@gmail.com)
 
 *Open to questions, collaborations, or feedback.*
