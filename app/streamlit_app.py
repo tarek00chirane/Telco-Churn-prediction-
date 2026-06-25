@@ -2,83 +2,92 @@ import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
-from datetime import datetime
 import warnings
-import os
 from pathlib import Path
 warnings.filterwarnings('ignore')
 
-# ─── Page configuration ───────────────────────────────────────────────────────
+# ─── Page Configuration ─────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Telco Churn Predictor",
-    page_icon="📊",  # fallback, but we'll override with Font Awesome
     layout="wide",
 )
 
-# ─── Custom CSS for better appearance ─────────────────────────────────────────
+# ─── Styling ────────────────────────────────────────────────────────────────
 st.markdown("""
     <style>
         .main { max-width: 1200px; margin: 0 auto; }
         .stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 10px; }
-        .risk-high { color: #c0392b; font-weight: bold; }
-        .risk-low { color: #1e8449; font-weight: bold; }
-        .risk-medium { color: #d68910; font-weight: bold; }
         h1 { color: #1f4e79; }
         h2 { color: #2e75b6; }
     </style>
 """, unsafe_allow_html=True)
 
-# ─── Load pipeline ────────────────────────────────────────────────────────────
+# ─── Load Pipeline ──────────────────────────────────────────────────────────
 @st.cache_resource
 def load_pipeline():
-    try:
-       
-        # Get the directory where this script is located
-        current_dir = Path(__file__).parent
-        
-        # Try multiple possible locations (in order of likelihood)
-        possible_paths = [
-            current_dir / 'churn_production_pipeline.pkl',           # Same folder as app.py
-            current_dir / '..' / 'churn_production_pipeline.pkl',    # One level up (repo root)
-            Path('churn_production_pipeline.pkl'),                   # Working directory root
-            Path('/app/churn_production_pipeline.pkl'),              # Streamlit Cloud absolute path
-            Path('/mount/src/your-repo-name/churn_production_pipeline.pkl'),  # GitHub Codespaces
-        ]
-        
-        # Try each path until i find the file
-        pipeline = None
-        for path in possible_paths:
-            if path.exists():
-               # st.info(f"✅ Found pipeline at:  {path}")
-                pipeline = joblib.load(path)
-                break
-        
-        if pipeline is None:
-            # Debug: Show what files exist in the current directory
-            st.error("❌ Pipeline file 'churn_production_pipeline.pkl' not found!")
-            st.write("📁 Files in current directory:", os.listdir('.'))
-            st.write("📁 Files in parent directory:", os.listdir('..') if os.path.exists('..') else "N/A")
-            st.write("📁 Current working directory:", os.getcwd())
-            return None
-        
-        return pipeline
-        
-    except Exception as e:
-        st.error(f"❌ Error loading pipeline: {str(e)}")
-        return None
+    """Load the trained churn prediction pipeline from disk."""
+    current_dir = Path(__file__).parent
+    possible_paths = [
+        current_dir / 'churn_production_pipeline.pkl',
+        current_dir / '..' / 'churn_production_pipeline.pkl',
+        Path('churn_production_pipeline.pkl'),
+        Path('/app/churn_production_pipeline.pkl'),
+    ]
+    for path in possible_paths:
+        if path.exists():
+            return joblib.load(path), path
+    return None, None
 
-pipeline = load_pipeline()
+pipeline, pipeline_path = load_pipeline()
 
-# ─── Title and intro ──────────────────────────────────────────────────────────
-st.title(" Telco Customer Churn Predictor")
+# ─── Page Title ─────────────────────────────────────────────────────────────
+st.title("Telco Customer Churn Predictor")
 st.markdown("**ML-powered churn risk assessment. Predict customer churn risk and get actionable recommendations**")
-
 st.divider()
 
-# ─── Sidebar: Input section ───────────────────────────────────────────────────
+# ─── Error Handling ─────────────────────────────────────────────────────────
+if pipeline is None:
+    st.error("Pipeline file not found. Place churn_production_pipeline.pkl in the app directory.")
+    st.stop()
+
+
+
+# ─── Categorical Encodings ──────────────────────────────────────────────────
+# These mappings must match the trained pipeline's LabelEncoder values
+CATEGORICAL_ENCODINGS = {
+    'Contract': {
+        "Month-to-month": 0,
+        "One year": 1,
+        "Two year": 2
+    },
+    'InternetService': {
+        "DSL": 0,
+        "Fiber optic": 1,
+        "No": 2
+    },
+    'OnlineSecurity': {
+        "No": 0,
+        "Yes": 1
+    },
+    'PaymentMethod': {
+        "Bank transfer (automatic)": 0,
+        "Credit card (automatic)": 1,
+        "Electronic check": 2,
+        "Mailed check": 3
+    },
+    'PaperlessBilling': {
+        "No": 0,
+        "Yes": 1
+    },
+    'TechSupport': {
+        "No": 0,
+        "Yes": 1
+    }
+}
+
+# ─── Sidebar: Customer Inputs ───────────────────────────────────────────────
 st.sidebar.header("Customer Profile")
 
-# Basic info
 tenure = st.sidebar.slider(
     "Tenure (months)",
     min_value=0, max_value=72, value=24,
@@ -88,32 +97,24 @@ tenure = st.sidebar.slider(
 monthly_charges = st.sidebar.slider(
     "Monthly Charges ($)",
     min_value=18.0, max_value=119.0, value=65.0, step=0.5,
-    help="What is the customer's current monthly bill?"
+    help="Current monthly bill amount"
 )
 
 total_charges = st.sidebar.slider(
     "Total Charges ($)",
-    min_value=18.0, max_value=8684.0, value=1500.0, step=10.0,
-    help="Total amount the customer has paid to date"
+    min_value=18.0, max_value=8684.0, value=1560.0, step=10.0,
+    help="Total amount paid to date"
 )
 
 st.sidebar.divider()
 st.sidebar.header("Services")
 
-# Services (count how many are active)
-phone_service = st.sidebar.checkbox("Phone Service", value=True)
-multiple_lines = st.sidebar.checkbox("Multiple Lines", value=False)
 internet_service = st.sidebar.selectbox(
     "Internet Service Type",
-    ["No", "DSL", "Fiber Optic"],
-    help="None, DSL, or Fiber Optic"
+    ["DSL", "Fiber optic", "No"],
 )
-online_security = st.sidebar.checkbox("Online Security", value=False)
-online_backup = st.sidebar.checkbox("Online Backup", value=False)
-device_protection = st.sidebar.checkbox("Device Protection", value=False)
-tech_support = st.sidebar.checkbox("Tech Support", value=False)
-streaming_tv = st.sidebar.checkbox("Streaming TV", value=False)
-streaming_movies = st.sidebar.checkbox("Streaming Movies", value=False)
+online_security = st.sidebar.selectbox("Online Security", ["No", "Yes"])
+tech_support = st.sidebar.selectbox("Tech Support", ["No", "Yes"])
 
 st.sidebar.divider()
 st.sidebar.header("Contract & Billing")
@@ -121,223 +122,163 @@ st.sidebar.header("Contract & Billing")
 contract = st.sidebar.selectbox(
     "Contract Type",
     ["Month-to-month", "One year", "Two year"],
-    help="Most important predictor of churn!"
 )
 
 payment_method = st.sidebar.selectbox(
     "Payment Method",
-    ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"],
-    help="Automatic payments indicate stronger commitment"
+    ["Bank transfer (automatic)", "Credit card (automatic)", "Electronic check", "Mailed check"],
 )
 
-paperless_billing = st.sidebar.checkbox("Paperless Billing", value=False)
+paperless_billing = st.sidebar.selectbox("Paperless Billing", ["No", "Yes"])
 
-# ─── Feature Engineering ──────────────────────────────────────────────────────
+# ─── Feature Engineering ────────────────────────────────────────────────────
+# Compute derived features from raw inputs
+tenure_val = tenure
+monthly_charges_val = monthly_charges
 
-
-# Count active services
-num_active_services = sum([
-    phone_service,
-    multiple_lines,
-    internet_service != "No",
-    online_security,
-    online_backup,
-    device_protection,
-    tech_support,
-    streaming_tv,
-    streaming_movies
-])
-
-# Avoid division by zero
-safe_tenure = tenure if tenure > 0 else 0.5
-safe_total = total_charges if total_charges > 0 else 0.5
-
-# Calculate engineered features
 avg_monthly_charges = total_charges / (tenure + 1)
 charge_trend = monthly_charges - avg_monthly_charges
 contract_risk = monthly_charges / (tenure + 1)
 monthly_to_total_ratio = monthly_charges / (total_charges + 1)
-avg_service_usage = num_active_services / 9.0
 
-# Log transform the skewed features
+# Apply log transformation for skewed features
 contract_risk_log = np.log1p(contract_risk)
 monthly_to_total_ratio_log = np.log1p(monthly_to_total_ratio)
 
-# ─── Encode categorical variables ─────────────────────────────────────────────
-# These mappings match your training data
+# ─── Encode Categorical Variables ───────────────────────────────────────────
+contract_encoded = CATEGORICAL_ENCODINGS['Contract'][contract]
+internet_encoded = CATEGORICAL_ENCODINGS['InternetService'][internet_service]
+online_security_encoded = CATEGORICAL_ENCODINGS['OnlineSecurity'][online_security]
+payment_encoded = CATEGORICAL_ENCODINGS['PaymentMethod'][payment_method]
+paperless_encoded = CATEGORICAL_ENCODINGS['PaperlessBilling'][paperless_billing]
+tech_support_encoded = CATEGORICAL_ENCODINGS['TechSupport'][tech_support]
 
-contract_map = {"Month-to-month": 0, "One year": 1, "Two year": 2}
-contract_encoded = contract_map[contract]
-
-internet_map = {"No": 0, "DSL": 1, "Fiber Optic": 2}
-internet_encoded = internet_map[internet_service]
-
-payment_map = {
-    "Electronic check": 0,
-    "Mailed check": 1,
-    "Bank transfer (automatic)": 2,
-    "Credit card (automatic)": 3
-}
-payment_encoded = payment_map[payment_method]
-
-# Binary features
-online_security_binary = 1 if online_security else 0
-tech_support_binary = 1 if tech_support else 0
-paperless_binary = 1 if paperless_billing else 0
-
-# ─── Create feature array in correct order ────────────────────────────────────
-# This MUST match the order used when training the pipeline
+# ─── Build Feature Array ───────────────────────────────────────────────────
+# Features MUST be in exact order expected by the trained pipeline
 feature_array = np.array([
-    tenure,
-    monthly_charges,
+    tenure_val,
+    monthly_charges_val,
     contract_encoded,
-    internet_encoded,
-    online_security_binary,
-    tech_support_binary,
-    paperless_binary,
-    payment_encoded,
     contract_risk_log,
+    charge_trend,
     monthly_to_total_ratio_log,
-    num_active_services
+    internet_encoded,
+    online_security_encoded,
+    payment_encoded,
+    paperless_encoded,
+    tech_support_encoded,
 ]).reshape(1, -1)
 
-# ─── Make prediction ──────────────────────────────────────────────────────────
-if pipeline is not None:
+# ─── Make Prediction ────────────────────────────────────────────────────────
+try:
     churn_probability = pipeline.predict_proba(feature_array)[0][1]
     churn_prediction = pipeline.predict(feature_array)[0]
-else:
-    churn_probability = 0.5
-    churn_prediction = 0
+    
+except Exception as e:
+    st.error(f"Prediction failed: {e}")
+    st.stop()
 
-# ─── Risk classification ──────────────────────────────────────────────────────
+# ─── Determine Risk Level ───────────────────────────────────────────────────
 if churn_probability < 0.30:
-    risk_level = "🟢 LOW RISK"
-    risk_class = "risk-low"
+    risk_level = "LOW RISK"
     risk_color = "#1e8449"
+    risk_indicator = "🟢"
 elif churn_probability < 0.60:
-    risk_level = "🟡 MEDIUM RISK"
-    risk_class = "risk-medium"
+    risk_level = "MEDIUM RISK"
     risk_color = "#d68910"
+    risk_indicator = "🟡"
 else:
-    risk_level = "🔴 HIGH RISK"
-    risk_class = "risk-high"
+    risk_level = "HIGH RISK"
     risk_color = "#c0392b"
+    risk_indicator = "🔴"
 
-# ─── Main content: Results ────────────────────────────────────────────────────
-col1, col2, col3 = st.columns(3)
-
+# ─── Display Prediction Results ─────────────────────────────────────────────
+col1, col2, col3 = st.columns([1, 1, 1])
 with col1:
-    st.metric(
-        label="Churn Probability",
-        value=f"{churn_probability*100:.1f}%",
-        delta=None
-    )
-
+    st.metric("Churn Probability", f"{churn_probability*100:.1f}%")
 with col2:
-    st.markdown(f"<div style='text-align: center; padding: 20px;'><h3 style='color: {risk_color};'>{risk_level}</h3></div>", unsafe_allow_html=True)
-
+    st.markdown(f"<h2 style='text-align: center; color:{risk_color}; margin-top: 20px;'>{risk_indicator}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center; color:{risk_color}; font-weight: bold; margin-top: -10px;'>{risk_level}</p>", unsafe_allow_html=True)
 with col3:
-    st.metric(
-        label="Prediction",
-        value="CHURN" if churn_prediction == 1 else "STAY",
-        delta=None
-    )
+    st.metric("Prediction", "CHURN" if churn_prediction == 1 else "STAY")
 
 st.divider()
 
-# ─── Business recommendations ─────────────────────────────────────────────────
+# ─── Recommendations ────────────────────────────────────────────────────────
 st.header("Recommended Actions")
-
 recommendations = []
 
-# ─── Rule 1: Contract type ───────────────────────────────────────────────────
+# Rule 1: Contract type analysis
 if contract == "Month-to-month":
     recommendations.append({
-        "severity": "🔴 CRITICAL",
+        "severity": "CRITICAL",
         "title": "Contract Migration",
-        "description": "Month-to-month contract detected. Offer a 10% first-year discount to convert to 1-year or 2-year contract. Reduces churn risk by up to 40%."
+        "description": "Offer incentive to migrate to 1-year or 2-year contract."
     })
 elif contract == "One year":
     recommendations.append({
-        "severity": "🟡 MEDIUM",
+        "severity": "MEDIUM",
         "title": "Upgrade Path",
-        "description": "Offer a loyalty upgrade to 2-year contract before renewal. Provides customer with better terms and locks in engagement."
+        "description": "Offer upgrade to 2-year contract before renewal."
     })
 
-# ─── Rule 2: Tenure ──────────────────────────────────────────────────────────
+# Rule 2: Tenure-based engagement
 if tenure < 6:
     recommendations.append({
-        "severity": "🔴 CRITICAL",
+        "severity": "CRITICAL",
         "title": "Early Engagement",
-        "description": "New customer (<6 months) — high vulnerability. Proactive onboarding call within 48 hours to ensure smooth transition and identify early pain points."
+        "description": "Customer is very new – proactive onboarding call within 48 hours."
     })
 elif tenure < 12:
     recommendations.append({
-        "severity": "🟡 MEDIUM",
+        "severity": "MEDIUM",
         "title": "First-Year Check-in",
-        "description": "Customer approaching 12-month milestone. Schedule satisfaction review to address concerns before the typical churn window opens."
+        "description": "Confirm satisfaction before churn window."
     })
 
-# ─── Rule 3: High bill + low tenure ──────────────────────────────────────────
+# Rule 3: New customer with high bill
 if monthly_charges > 80 and tenure < 12:
     recommendations.append({
-        "severity": "🔴 CRITICAL",
+        "severity": "CRITICAL",
         "title": "High Bill Alert",
-        "description": f"New customer paying ${monthly_charges}/month — premium pricing tier. Risk of billing shock. Offer a 15% loyalty discount or bundle reduction."
+        "description": "New customer paying premium price – offer bundle discount."
     })
 
-# ─── Rule 4: Service engagement ──────────────────────────────────────────────
-if num_active_services < 3:
+# Rule 4: Missing protective services
+if online_security == "No" and tech_support == "No":
     recommendations.append({
-        "severity": "🟡 MEDIUM",
-        "title": "Service Adoption",
-        "description": f"Customer using only {num_active_services}/9 services. Low engagement = high churn risk. Recommend bundling security, backup, and support with a free trial period."
-    })
-elif num_active_services >= 7:
-    recommendations.append({
-        "severity": "🟢 LOW",
-        "title": "Loyalty Program",
-        "description": f"Customer highly engaged with {num_active_services} services. Strong retention candidate. Invite to referral program or offer premium upgrade at reduced rate."
-    })
-
-# ─── Rule 5: Security & Support ──────────────────────────────────────────────
-# Note: Using the variable names from your inputs
-if not online_security and not tech_support and internet_service == "Fiber Optic":
-    recommendations.append({
-        "severity": "🔴 CRITICAL",
+        "severity": "MEDIUM",
         "title": "Add Protective Services",
-        "description": "Fiber Optic customer without security or support services. This is a high-value, high-risk segment. Offer free 3-month trial of OnlineSecurity and TechSupport."
+        "description": "Customer lacks security and support – offer free trial."
     })
 
-# ─── Rule 6: High bill + multiple lines ──────────────────────────────────────
-# (Added a bonus recommendation based on your feature engineering)
+# Rule 5: Highest-risk archetype
 if monthly_charges > 70 and contract == "Month-to-month" and tenure < 6:
     recommendations.append({
-        "severity": "🔴 CRITICAL",
+        "severity": "CRITICAL",
         "title": "Price Sensitivity Alert",
-        "description": "Customer matches highest-risk archetype: new, month-to-month, high bill. Immediate retention call needed. Consider first-month credit or service upgrade."
+        "description": "High-risk archetype – immediate retention call needed."
     })
 
-# ─── Default: No critical issues ─────────────────────────────────────────────
+# Default recommendation
 if not recommendations:
     recommendations.append({
-        "severity": "🟢 LOW",
+        "severity": "LOW",
         "title": "Standard Monitoring",
-        "description": "Customer profile is healthy — no critical churn signals detected. Continue standard engagement and monitor at renewal."
+        "description": "Customer profile is healthy — no critical churn signals detected."
     })
 
-# ─── Display recommendations with professional styling ──────────────────────
+# Display recommendations with professional styling
 for rec in recommendations:
-    # Set color based on severity
     if "CRITICAL" in rec["severity"]:
-        border_color = "#c0392b"      # Red
-        bg_color = "#fde8e8"           # Light red
+        border_color = "#c0392b"
+        bg_color = "#fde8e8"
     elif "MEDIUM" in rec["severity"]:
-        border_color = "#f39c12"       # Orange
-        bg_color = "#fef9e7"           # Light orange
+        border_color = "#f39c12"
+        bg_color = "#fef9e7"
     else:
-        border_color = "#27ae60"       # Green
-        bg_color = "#eafaf1"           # Light green
+        border_color = "#27ae60"
+        bg_color = "#eafaf1"
     
     st.markdown(f"""
         <div style="
@@ -349,8 +290,8 @@ for rec in recommendations:
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         ">
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-                <span style="font-size: 18px; font-weight: bold;">{rec['severity']}</span>
-                <span style="font-size: 16px; font-weight: bold; color: #2c3e50;">— {rec['title']}</span>
+                <span style="font-size: 16px; font-weight: bold;">{rec['severity']}</span>
+                <span style="font-size: 15px; font-weight: bold; color: #2c3e50;">— {rec['title']}</span>
             </div>
             <div style="color: #555; font-size: 14px; margin-top: 4px; line-height: 1.5;">
                 {rec['description']}
@@ -360,114 +301,107 @@ for rec in recommendations:
 
 st.divider()
 
-# ─── Feature importance table ─────────────────────────────────────────────────
+# ─── Customer Profile Summary ───────────────────────────────────────────────
 st.header("Customer Profile Summary")
-
 profile_data = {
-    "Attribute": [
-        "Tenure",
-        "Monthly Charges",
-        "Total Charges",
-        "Active Services",
-        "Contract Type",
-        "Internet Type",
-        "Online Security",
-        "Tech Support",
-        "Payment Method",
-        "Paperless Billing"
-    ],
-    "Value": [
-        f"{tenure} months",
-        f"${monthly_charges:.2f}",
-        f"${total_charges:.2f}",
-        f"{num_active_services}/9",
-        contract,
-        internet_service,
-        " Yes" if online_security else " No",
-        " Yes" if tech_support else " No",
-        payment_method,
-        " Yes" if paperless_billing else " No"
-    ]
+    "Attribute": ["Tenure", "Monthly Charges", "Total Charges", "Contract Type",
+                  "Internet Service", "Online Security", "Tech Support", "Payment Method", "Paperless Billing"],
+    "Value": [f"{tenure} months", f"${monthly_charges:.2f}", f"${total_charges:.2f}",
+              contract, internet_service, online_security, tech_support, 
+              payment_method, paperless_billing]
 }
-
 st.dataframe(profile_data, use_container_width=True, hide_index=True)
 
+st.divider()
 
-
-# ─── Engineered features (for transparency) ───────────────────────────────────
-import streamlit as st
-
-# Initialize session state
-if "show_eng" not in st.session_state:
-    st.session_state.show_eng = False
-
-# Create a row with just the button (takes full width)
-st.markdown("---")  # Optional separator
-
-# Use columns to make the button take full width
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    if st.button(
-        "▼ Hide engineered features" if st.session_state.show_eng else "▶ Show engineered features",
-        key="eng_toggle_btn",
-        use_container_width=True
-    ):
-        st.session_state.show_eng = not st.session_state.show_eng
-        st.rerun()
-
-# Show content only when toggled on
-if st.session_state.show_eng:
-    st.markdown("""
-        <p style="color: #666; font-size: 13px; margin-bottom: 12px;">
-            These features are computed from raw inputs and used by the model to predict churn risk.
-            <b style="color: #2e75b6;">Contract Risk (log)</b> is the single strongest predictor.
-        </p>
-    """, unsafe_allow_html=True)
-
-    # ─── Prepare data ──────────────────────────────────────────────────────────
+# ─── Engineered Features Expander ───────────────────────────────────────────
+with st.expander("Engineered Features & Pipeline Input", expanded=False):
+    st.markdown("**Features computed and sent to the predictive model:**")
+    
+    # Prepare engineered features data with interpretations and risk impact
     eng_data = {
         "Feature": [
-            "Avg Monthly Charges",
-            "Charge Trend",
-            "Contract Risk (log)",
-            "Monthly-to-Total Ratio (log)",
-            "Service Usage Rate"
+            "tenure",
+            "MonthlyCharges",
+            "Contract",
+            "ContractRisk_log",
+            "ChargeTrend",
+            "MonthlyToTotalRatio_log",
+            "InternetService",
+            "OnlineSecurity",
+            "PaymentMethod",
+            "PaperlessBilling",
+            "TechSupport"
         ],
         "Value": [
-            f"${avg_monthly_charges:.2f}",
-            f"{charge_trend:+.2f}" if isinstance(charge_trend, (int, float)) else "N/A",
-            f"{contract_risk_log:.4f}" if contract_risk_log is not None else "N/A",
-            f"{monthly_to_total_ratio_log:.4f}" if monthly_to_total_ratio_log is not None else "N/A",
-            f"{avg_service_usage * 100:.1f}%" if avg_service_usage is not None else "N/A"
+            f"{tenure_val:.1f}",
+            f"${monthly_charges_val:.2f}",
+            f"{contract_encoded}",
+            f"{contract_risk_log:.4f}",
+            f"{charge_trend:+.4f}",
+            f"{monthly_to_total_ratio_log:.4f}",
+            f"{internet_encoded}",
+            f"{online_security_encoded}",
+            f"{payment_encoded}",
+            f"{paperless_encoded}",
+            f"{tech_support_encoded}"
         ],
         "Interpretation": [
-            "Historical average spend per month",
-            "Current bill vs historical (+ = increase = risk)",
-            "High when new + expensive (most important!)",
-            "High = new customer with big bill",
-            f"Fraction of 9 services used ({num_active_services}/9)"
+            "Customer tenure in months (longer = lower risk)",
+            "Current monthly bill amount",
+            "Contract type (0=Month, 1=One year, 2=Two year)",
+            "New + expensive = highest risk signal",
+            "Bill increase from historical (+ = risk)",
+            "New customer paying large bill = risk",
+            "Service type (0=DSL, 1=Fiber, 2=None)",
+            "Has online security protection (0=No, 1=Yes)",
+            "Payment method (0=Check, 1=Card, 2=Check, 3=Auto)",
+            "Receives bills digitally (0=higher engagement, 1=lower engagement)",
+            "Has tech support services (0=No, 1=Yes)"
         ],
         "Risk Impact": [
+            "Low",
             "Medium",
             "High",
             "High",
+            "High",
             "Medium",
+            "Low",
+            "Low",
+            "Low",
+            "Low",
             "Low"
         ]
     }
 
-    # ─── Display as styled dataframe ──────────────────────────────────────────
-    import pandas as pd
     eng_df = pd.DataFrame(eng_data)
 
-    def highlight_important(row):
-        if "Contract Risk" in row["Feature"]:
-            return ["background-color: #fef9e7; font-weight: bold;"] * len(row)
-        return [""] * len(row)
+    # Styling function - highlight Contract Risk and color by impact
+    def highlight_and_color(row):
+        styles = []
+        is_contract_risk = "ContractRisk" in row["Feature"]  
+
+        for idx, val in enumerate(row):
+            if is_contract_risk:
+                if idx == len(row) - 1:  
+                    styles.append("background-color: #ffe6e6; color: #c0392b; font-weight: bold;")
+                else:
+                    styles.append("background-color: #fef9e7; font-weight: bold;")  
+            elif idx == len(row) - 1:  # Risk Impact column
+                impact = row["Risk Impact"]
+                if impact == "High":
+                    styles.append("background-color: #ffe6e6; color: #c0392b; font-weight: bold;")
+                elif impact == "Medium":
+                    styles.append("background-color: #fff9e6; color: #d68910; font-weight: bold;")
+                else:
+                    styles.append("background-color: #e6f9e6; color: #1e8449; font-weight: bold;")
+            else:
+                styles.append("")
+        return styles
 
     st.dataframe(
         eng_df.style
-        .apply(highlight_important, axis=1)
+        .apply(highlight_and_color, axis=1)
         .set_properties(**{
             'text-align': 'left',
             'padding': '8px 12px',
@@ -478,39 +412,40 @@ if st.session_state.show_eng:
         ]),
         use_container_width=True,
         hide_index=True,
-        height=250
+        height=350
     )
-
-    # ─── Quick risk summary ────────────────────────────────────────────────────
+    
+    st.divider()
+    
+    # Risk metrics inside expander
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(
             label="High Risk Signals",
             value=sum([
-                charge_trend > 5 if isinstance(charge_trend, (int, float)) else 0,
-                contract_risk_log > 0.5 if contract_risk_log is not None else 0,
-                monthly_to_total_ratio_log > 0.5 if monthly_to_total_ratio_log is not None else 0,
-                num_active_services < 3 if num_active_services is not None else 0
+                charge_trend > 5,
+                contract_risk_log > 0.5,
+                monthly_to_total_ratio_log > 0.5
             ]),
             delta="Critical alerts"
         )
     with col2:
-        risk_level = "High" if contract_risk_log > 0.5 else "Medium" if contract_risk_log > 0.2 else "Low"
+        risk_assessment = "High" if contract_risk_log > 0.5 else "Medium" if contract_risk_log > 0.2 else "Low"
         st.metric(
             label="Overall Risk",
-            value=risk_level,
+            value=risk_assessment,
             delta="Based on Contract Risk"
         )
     with col3:
-        engagement_pct = avg_service_usage * 100 if avg_service_usage is not None else 0
         st.metric(
-            label="Engagement Score",
-            value=f"{engagement_pct:.0f}%",
-            delta=f"{num_active_services}/9 services" if num_active_services is not None else "N/A"
+            label="Churn Score",
+            value=f"{churn_probability*100:.1f}%",
+            delta="Model Prediction"
         )
-        st.progress(engagement_pct / 100)
-# ─── Footer ───────────────────────────────────────────────────────────────────
+
 st.divider()
+
+# ─── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <p style='text-align: center; color: gray; font-size: 12px;'>
     Telco Churn Prediction Model | Built with Streamlit | XGBoost Model · AUC-ROC 0.847
