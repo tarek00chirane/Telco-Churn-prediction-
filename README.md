@@ -133,13 +133,13 @@ All scores are evaluated on the original (non‑SMOTE) test set to reflect real�
 
 ```
 ├── notebook/
-│   └── Telco_Churn_Pipeline.ipynb    Full analysis: cleaning → modelling → results
+│   └── Telco_Churn_Pipeline.ipynb      Full analysis: cleaning → modelling → results
 ├── api/
-│   └── main.py                        FastAPI endpoint for real-time scoring
+│   └── main.py(Currently unavailable)  FastAPI endpoint for real-time scoring
 ├── app/
-│   └── streamlit_app.py               Interactive demo for non-technical users
+│   └── streamlit_app.py                Interactive demo for non-technical users
 ├── models/
-│   └── churn_pipeline.pkl             Trained model + scaler (production-ready)
+│   └── churn_pipeline.pkl              Trained model + scaler (production-ready)
 └── README.md
 ```
 
