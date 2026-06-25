@@ -32,6 +32,7 @@ def load_pipeline():
         current_dir / '..' / 'churn_production_pipeline.pkl',
         Path('churn_production_pipeline.pkl'),
         Path('/app/churn_production_pipeline.pkl'),
+        Path('/mount/src/your-repo-name/churn_production_pipeline.pkl'),
     ]
     for path in possible_paths:
         if path.exists():
