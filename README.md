@@ -171,7 +171,7 @@ All scores are evaluated on the original (nonâ€‘SMOTE) test set to reflect realâ
 
 ## Connect with Me
 
-Built by **[Your Name]**  
+Built by **Tarek Chirane**  
 
 - [LinkedIn](https://www.linkedin.com/in/tarek-chirane-2452b9260)
 - [GitHub](https://github.com/tarek00chirane)
